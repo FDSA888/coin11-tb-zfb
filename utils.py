@@ -1,4 +1,5 @@
 import time
+import sys
 import random
 import io
 import re
@@ -8,7 +9,9 @@ import ddddocr
 import subprocess
 import ssl
 import urllib.request
+import traceback
 import torch
+import uiautomator2 as u2
 print("PyTorch 版本:", torch.version)
 print("CUDA 是否可用:", torch.cuda.is_available())
 if hasattr(torch.backends, "mps"):
@@ -41,6 +44,7 @@ TB_APP = "com.taobao.taobao"
 ALIPAY_APP = "com.eg.android.AlipayGphone"
 FISH_APP = "com.taobao.idlefish"
 TMALL_APP = "com.tmall.wireless"
+TMALL_HOME = "com.tmall.wireless.maintab.module.TMMainTabActivity"
 
 # 应用启动配置，键为包名，值为activity
 APP_START_CONFIG = {
@@ -49,11 +53,12 @@ APP_START_CONFIG = {
     TMALL_APP: "com.tmall.wireless.maintab.module.TMMainTabActivity",
     ALIPAY_APP: "com.eg.android.AlipayGphone.AlipayLogin"  # 默认配置，不指定activity
 }
+VIDEO_ACTIVITY = ["com.taobao.idlefish.ads.csj.TTAdStandardPortraitActivity"]
 
 
 def check_chars_exist(text, chars=None):
     if chars is None:
-        chars = ["拉好友", "抢红包", "搜索兴趣商品下单", "买精选商品", "全场3元3件", "固定入口", "农场小游戏", "砸蛋","大众点评", "蚂蚁新村", "消消乐", "3元抢3件包邮到家", "拍一拍", "1元抢爆款好货", "拉1人助力","玩消消乐", "下单即得", "添加签到神器", "下单得肥料", "88VIP", "邀请好友", "好货限时直降", "连连消","下单即得", "拍立淘", "玩任意游戏", "首页回访", "百亿外卖", "玩趣味游戏得大额体力", "天猫积分换体力", "头条刷热点", "一淘签到", "每拉", "闪购拿大额补贴", "开心消消乐过1关", "通关", "购买商品", "去闪购领红包点外卖", "冒险大作战", "斗地主", "买限时折扣好物", "趣头条", "(1000/3500)", "任意下单", "农场对对碰匹配", "任意充值"]
+        chars = ["拉好友", "抢红包", "搜索兴趣商品下单", "买精选商品", "全场3元3件", "固定入口", "农场小游戏", "砸蛋","大众点评", "蚂蚁新村", "消消乐", "3元抢3件包邮到家", "拍一拍", "1元抢爆款好货", "拉1人助力","玩消消乐", "下单即得", "添加签到神器", "下单得肥料", "88VIP", "邀请好友", "好货限时直降", "连连消","下单即得", "拍立淘", "玩任意游戏", "首页回访", "百亿外卖", "玩趣味游戏得大额体力", "天猫积分换体力", "头条刷热点", "一淘签到", "每拉", "闪购拿大额补贴", "开心消消乐过1关", "通关", "购买商品", "去闪购领红包点外卖", "冒险大作战", "斗地主", "买限时折扣好物", "趣头条", "(1000/3500)", "任意下单", "农场对对碰匹配", "任意充值", "闯关", "消一消"]
     for char in chars:
         if char in text:
             return True
@@ -183,9 +188,6 @@ def find_text_by_easyocr(screenshot, target_text):
     for bbox, text, confidence in results:
         if target_text in text:
             print(f"找到文字: '{text}' (置信度: {confidence:.2f})")
-            # 获取边界框坐标
-            # bbox格式: [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
-            # 转换为(x, y, width, height)
             x_coord = [point[0] for point in bbox]
             y_coord = [point[1] for point in bbox]
             x_min = int(min(x_coord))
@@ -301,7 +303,7 @@ def task_loop(d, back_func, origin_app=TB_APP, is_fish=False, duration=22):
                 time.sleep(4)
                 commodity_view1 = d.xpath("//android.widget.ListView/android.view.View[1]")
                 if commodity_view1.exists:
-                    print(f"commodity_view1，点击{commodity_view1.center()}")
+                    print(f"存在commodity_view1，点击{commodity_view1.center()}")
                     commodity_view1.click()
                     time.sleep(18)
                     break
@@ -332,6 +334,79 @@ def task_loop(d, back_func, origin_app=TB_APP, is_fish=False, duration=22):
         except Exception as e:
             time.sleep(5)
     back_func()
+
+
+def back_to_video(d):
+    while True:
+        temp_package, temp_activity = get_current_app(d)
+        if temp_package is None or temp_activity is None or "Ext2ContainerActivity" in temp_activity:
+            continue
+        if temp_activity in VIDEO_ACTIVITY:
+            break
+        if FISH_APP not in temp_package:
+            start_app(d, FISH_APP)
+            continue
+        else:
+            d.press("back")
+            time.sleep(0.5)
+
+
+def in_video(d):
+    temp_package, temp_activity = get_current_app(d)
+    return temp_activity in VIDEO_ACTIVITY
+
+
+def video_task(d):
+    screen_width, screen_height = d.window_size()
+    while True:
+        print("开始任务循环")
+        time.sleep(4)
+        if not in_video(d):
+            break
+        speed_btn = d(className="android.widget.TextView", textMatches=r"我要加速|立即前往加速|我要减广告时长|我要立即领奖")
+        if speed_btn.exists:
+            print("点击我要加速")
+            speed_btn.click()
+            time.sleep(2)
+            check_can_open(d)
+            time.sleep(18)
+            back_to_video(d)
+            continue
+        get_btn1 = d(className="android.widget.TextView", textMatches=r"奖励已领取|领取成功")
+        if get_btn1.exists:
+            print("点击奖励已领取")
+            jump_btn = d(className="android.widget.TextView", textContains="跳过")
+            if jump_btn.exists:
+                jump_btn.click()
+            else:
+                d.click(get_btn1.center()[0], get_btn1.bounds()[2] + 70)
+                time.sleep(2)
+            continue
+        get_btn2 = d(className="android.widget.TextView", text="恭喜获得奖励")
+        if get_btn2.exists:
+            print("恭喜获得奖励，点击关闭")
+            d.click(screen_width - 100, get_btn2.center()[1])
+            time.sleep(2)
+            continue
+        get_btn3 = d(className="android.widget.TextView", textMatches=r"立即(领取|抢购)")
+        if get_btn3.exists:
+            print("点击立即(领取|抢购)")
+            get_btn3[-1].click()
+            time.sleep(2)
+            check_can_open(d)
+            time.sleep(18)
+            back_to_video(d)
+            continue
+        screen_shot = d.screenshot(format='opencv')
+        pt1, _, _ = find_button_multiscale(screen_shot, "./img/video_get.png", threshold=0.7)
+        if pt1:
+            d.click(int(pt1[0]), int(pt1[1]))
+            time.sleep(2)
+            check_can_open(d)
+            time.sleep(18)
+            back_to_video(d)
+            continue
+        d.swipe_ext(u2.Direction.FORWARD)
 
 
 def close_xy_dialog(d):
@@ -471,6 +546,18 @@ def check_verify(d):
                 print("验证码滑动成功")
                 break
 
+
+def print_error():
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    print("=" * 10)
+    print(f"错误类型: {exc_type}")
+    print(f"错误信息: {exc_value}")
+    print(f"错误行号: {exc_traceback.tb_lineno}")
+    print("=" * 10)
+    tb_info = traceback.extract_tb(exc_traceback)
+    for frame in tb_info:
+        print(f"文件: {frame.filename}, 行号: {frame.lineno}, 函数: {frame.name}, 代码: {frame.line}")
+    print("=" * 10)
 
 # find_button2(cv2.imread("screenshot.png"), "./img/alipay_get.png")
 
