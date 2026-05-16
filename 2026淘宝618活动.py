@@ -29,6 +29,7 @@ ctx.when(xpath="//android.widget.FrameLayout[@resource-id='com.taobao.taobao:id/
 ctx.start()
 time.sleep(3)
 
+
 def find_coin_btn():
     while True:
         jump_btn = d(className="android.widget.Button", textContains="跳一跳拿钱")
@@ -112,6 +113,7 @@ def back_to_task():
                 d.press("back")
                 time.sleep(0.3)
 
+
 find_coin_btn()
 to_task()
 finish_count = 0
@@ -166,7 +168,7 @@ while True:
                     in_other_app = True
                 need_click_view.click()
                 time.sleep(3.5)
-                task_loop(d, back_to_task)
+                task_loop(d, back_to_task, duration=18)
             else:
                 error_count += 1
                 print("未找到可点击按钮", error_count)
@@ -209,5 +211,5 @@ ctx.close()
 d.shell("settings put system accelerometer_rotation 0")
 print("关闭手机自动旋转")
 time2 = time.time()
-minutes, seconds = divmod(int(time2 - time1), 60)  # 同时计算分钟和秒
+minutes, seconds = divmod(int(time2 - time1), 60)
 print(f"共耗时: {minutes} 分钟 {seconds} 秒")
