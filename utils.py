@@ -266,6 +266,11 @@ search_keys = ["华硕a豆air", "机械革命星耀14", "ipadmini7", "iphone16",
 
 def task_loop(d, back_func, origin_app=TB_APP, is_fish=False, duration=22):
     check_can_open(d)
+    package_name, _ = get_current_app(d)
+    if "com.sina.weibo" in package_name:
+        time.sleep(3)
+        back_func()
+        return
     history_lst1 = d.xpath(
         '(//android.widget.TextView[@text="历史搜索"]/following-sibling::android.widget.ListView)/android.view.View[1]')
     history_lst2 = d.xpath('//android.widget.TextView[@text="猜你想搜"]/following-sibling::android.view.View[1]/android.view.View[1]/android.widget.TextView')
@@ -672,6 +677,15 @@ def print_error():
         print(f"文件: {frame.filename}, 行号: {frame.lineno}, 函数: {frame.name}, 代码: {frame.line}")
     print("=" * 10)
 
+
+def check_popup(d):
+    popup1 = d(className="android.widget.LinearLayout", resourceId="com.taobao.taobao:id/uik_menu_panel_rl")
+    if popup1.exists:
+        print("存在底部弹出框，关闭他")
+        cancel_btn = d(className="android.widget.TextView", resourceId="com.taobao.taobao:id/uik_tv_cancel", text="取消")
+        if cancel_btn.exists:
+            print("点击取消按钮")
+            cancel_btn.click()
 # find_button2(cv2.imread("screenshot.png"), "./img/alipay_get.png")
 
 
